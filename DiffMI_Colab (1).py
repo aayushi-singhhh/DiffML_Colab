@@ -1,29 +1,18 @@
-# Generated from: DiffMI_Colab (1).ipynb
-# Converted at: 2026-06-12T16:23:21.909Z
-# Next step (optional): refactor into modules & generate tests with RunCell
-# Quick start: pip install runcell
-
 # # DiffMI — Training-Free Model Inversion Attack
-# ### Run cells top to bottom. Do NOT skip any cell.
-# **First: Runtime → Change runtime type → T4 GPU**
-
-
-# ═══════════════════════════════════════════════
+# Converted from DiffML_Colab.ipynb
 # CELL 1 — Install packages (run once per session)
-# ═══════════════════════════════════════════════
+
 import subprocess, sys
 
 def install(pkg):
     subprocess.check_call([sys.executable, '-m', 'pip', 'install', pkg, '-q', '--no-deps'])
 
-# Install only what is missing, no version conflicts
 !pip install diffusers==0.30.0 -q --no-deps
 !pip install accelerate==0.27.2 -q --no-deps
 !pip install transformers==4.41.0 -q --no-deps
 !pip install facenet-pytorch -q --no-deps
 !pip install huggingface_hub -q
 !pip install timm -q
-
 
 print('Packages installed')
 
@@ -51,9 +40,9 @@ print(diffusers.__version__)
 print(torch.__version__)
 print(torch.cuda.is_available())
 
-# ═══════════════════════════════════════════════
+
 # CELL 2 — Imports and device check
-# ═══════════════════════════════════════════════
+
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -74,9 +63,9 @@ if device.type == 'cuda':
 else:
     print('WARNING: No GPU detected. Go to Runtime > Change runtime type > T4 GPU')
 
-# ═══════════════════════════════════════════════
+
 # CELL 3 — Load DDPM (downloads ~450MB once)
-# ═══════════════════════════════════════════════
+
 from diffusers import UNet2DModel, DDPMScheduler
 
 print('Downloading DDPM pretrained on CelebA-HQ 256x256 ...')
@@ -88,18 +77,18 @@ unet = UNet2DModel.from_pretrained(
 scheduler = DDPMScheduler.from_pretrained('google/ddpm-celebahq-256')
 print('DDPM ready')
 
-# ═══════════════════════════════════════════════
+
 # CELL 4 — Load ArcFace + MTCNN
-# ═══════════════════════════════════════════════
+
 from facenet_pytorch import InceptionResnetV1, MTCNN
 
 arcface = InceptionResnetV1(pretrained='vggface2').eval().to(device)
 mtcnn   = MTCNN(image_size=160, margin=32, keep_all=False, device=device)
 print('ArcFace + MTCNN ready')
 
-# ═══════════════════════════════════════════════
+
 # CELL 5 — Core helper functions
-# ═══════════════════════════════════════════════
+
 
 def free_mem():
     gc.collect()
@@ -149,9 +138,9 @@ def cosine_sim(a, b):
 
 print('Helper functions defined')
 
-# ═══════════════════════════════════════════════
+
 # CELL 6 — Sanity check: generate one face
-# ═══════════════════════════════════════════════
+
 free_mem()
 test_latent = torch.randn(1, 3, 256, 256).to(device)
 test_img    = generate_image(test_latent, steps=20)
@@ -165,14 +154,14 @@ if emb is not None:
 display(test_pil)
 print('Sanity check passed — pipeline works end to end')
 
-# ═══════════════════════════════════════════════
+
 # CELL 7 — Step (a): Build latent code pool
 # Paper Section III-D
 # Filters random Gaussian codes by:
 #   1. D'Agostino K2 normality test
 #   2. MTCNN face detection
 # Run once — saves to pool.pt and reloads next time.
-# ═══════════════════════════════════════════════
+
 
 def build_pool(pool_size=100, tau_k=0.05, tau_d=0.80,
                steps=20, path='pool.pt'):
@@ -219,11 +208,11 @@ def build_pool(pool_size=100, tau_k=0.05, tau_d=0.80,
 pool = build_pool(pool_size=100, tau_k=0.05, tau_d=0.80,
                   steps=20, path='pool.pt')
 
-# ═══════════════════════════════════════════════
+
 # CELL 8 — Step (b): Top-N selection
 # Paper Section III-E
 # Rank pool codes by similarity to target embedding.
-# ═══════════════════════════════════════════════
+
 
 def select_top_n(pool, target_emb, N=3):
     scored = []
@@ -239,12 +228,12 @@ def select_top_n(pool, target_emb, N=3):
 
 print('select_top_n defined')
 
-# ═══════════════════════════════════════════════
+
 # CELL 9 — Step (c): Ranked Adversary attack
 # Paper Section III-F
 # Uses finite-difference gradient estimation so
 # DDPM never needs to store gradients -> no OOM.
-# ═══════════════════════════════════════════════
+
 
 def attack_one(xG_init, target_emb,
                epsilon=35.0,   # L2 perturbation budget
@@ -332,9 +321,9 @@ def ranked_adversary(top_n, target_emb,
 
 print('Attack functions defined')
 
-# ═══════════════════════════════════════════════
+
 # CELL 10 — Demo attack on a synthetic target
-# ═══════════════════════════════════════════════
+
 free_mem()
 
 # Generate a random target face
@@ -359,7 +348,6 @@ final_img, final_sim = ranked_adversary(
     t_max=20, steps=15
 )
 
-# Show results
 fig, ax = plt.subplots(1, 2, figsize=(9, 4))
 ax[0].imshow(to_pil(target_img)); ax[0].set_title('Target',           fontsize=13); ax[0].axis('off')
 ax[1].imshow(to_pil(final_img));  ax[1].set_title(f'Reconstruction\nsim={final_sim:.4f}', fontsize=13); ax[1].axis('off')
