@@ -20,6 +20,8 @@ Results We Got
 
 The attack successfully reconstructed faces with cosine similarity around 0.64, well above ArcFace's decision threshold of 0.23, meaning the reconstruction would be recognized as the same identity by the face recognition system. The generated faces visually matched the target in hair color, face shape, and general appearance. We evaluated Type-I accuracy (does reconstruction match the target image) and Type-II accuracy (does it match other images of the same person), which are the paper's primary metrics.
 
+
+
 Why So Many Environment Errors
 
 We spent significant time fighting package conflicts because Colab's environment has torch 2.12, numpy 2.x, and tokenizers 0.22 — all very recent versions — while diffusers and transformers have complex interdependencies that kept breaking. Every version pin we tried either conflicted with Colab's base packages or downgraded torch, which then broke GPU access. We ultimately solved it by using UNet2DModel and DDPMScheduler directly instead of DDPMPipeline, which is more version-agnostic, and by avoiding all version pinning and letting pip resolve compatible versions automatically.
